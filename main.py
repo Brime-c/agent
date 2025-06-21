@@ -37,6 +37,9 @@ if __name__ == "__main__":
     When a user asks a question or makes a request, make a function call plan. You can perform the following operations:
 
     - List files and directories
+    - Read file contents
+    - Execute Python files with optional arguments
+    - Write or overwrite files
 
     All paths you provide should be relative to the working directory. You do not need to specify the working directory in your function calls as it is automatically injected for security reasons.
     """
@@ -53,9 +56,55 @@ if __name__ == "__main__":
             },
         ),
     )
+    schema_get_file_content = types.FunctionDeclaration(
+        name="get_file_content",
+        description="Reads and returns the contents of a specified file, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The file_path to read files from, relative to the working directory. If not provided, say that no file_path was provided.",
+                ),
+            },
+        ),
+    )
+    schema_run_python_file = types.FunctionDeclaration(
+        name="run_python_file",
+        description="Executes a python file, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The file_path to execute files from, relative to the working directory. If not provided, say that no file_path was provided.",
+                ),
+            },
+        ),
+    )
+    schema_write_file = types.FunctionDeclaration(
+        name="write_file",
+        description="writes content to a file, creating it if it doesn't exist, create file if specified file doesnt exist in the directory, constrained to the working directory.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={
+                "file_path": types.Schema(
+                    type=types.Type.STRING,
+                    description="The file_path to write content in, relative to the working directory. If not provided, say that no file_path was provided.",
+                ),
+                "content": types.Schema(
+                    type=types.Type.STRING,
+                    description="The content to be written in the provided file_path, relative to the working directory. If not provided, say that 'no content was provided'"
+                )
+            },
+        ),
+    )
     available_functions = types.Tool(
         function_declarations=[
             schema_get_files_info,
+            schema_get_file_content,
+            schema_run_python_file,
+            schema_write_file,
         ]
     )
     try:
