@@ -1,11 +1,52 @@
 import sys
 import os
 import types
+import subprocess
 from dotenv import load_dotenv
 from google import genai # Keep genai imports together
 from google.genai import types # Keep genai imports together
+from functions.get_file_content import get_file_content
+from functions.get_files_info import get_files_info
+from functions.run_python_file import run_python_file
+from functions.write_file import write_file
 
 # This block runs only when the script is executed directly
+def call_function(function_call_part, verbose=False):
+    if verbose:
+        print(f"Calling function: {function_call_part.name}({function_call_part.args})")
+    else:
+        print(f" - Calling function: {function_call_part.name}")
+    function_call_part.args["working_directory"] = "./calculator"
+    function_map = {
+        "get_files_info": get_files_info,
+        "get_file_content": get_file_content,
+        "write_file": write_file,
+        "run_python_file": run_python_file
+    }
+    
+    if function_call_part.name in function_map:
+        function_to_call = function_map[function_call_part.name]
+        function_result = function_to_call(**function_call_part.args)
+    else:
+        return types.Content(
+            role="tool",
+            parts=[
+                types.Part.from_function_response(
+                    name=function_call_part.name,
+                    response={"error": f"Unknown function: {function_call_part.name}"},
+                )
+            ],
+        )
+    return types.Content(
+        role="tool",
+        parts=[
+            types.Part.from_function_response(
+                name=function_call_part.name,
+                response={"result": function_result},
+            )
+        ],
+    )
+
 if __name__ == "__main__":
     # Ensure the user provides a command-line argument for the prompt
     if len(sys.argv) < 2:
@@ -107,6 +148,8 @@ if __name__ == "__main__":
             schema_write_file,
         ]
     )
+
+
     try:
         # Send the message list to the model and get a response
         response = client.models.generate_content(
@@ -117,18 +160,22 @@ if __name__ == "__main__":
                 system_instruction=system_prompt
                 ),
         )
-        # Checks for verbose output
-        if "--verbose" in sys.argv:
-            print(f"User prompt: {user_prompt}")
-            print(response.text)
-            print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
-            print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
-        # Prints simple response if verbose is not requested
-        elif response.function_calls:
+        
+        if response.function_calls:
             for item in response.function_calls:
-                print(f"Calling function: {item.name}({item.args})")
+                function_call_result = call_function(item, verbose ="--verbose" in sys.argv)
+                if not function_call_result.parts or not function_call_result.parts[0].function_response:
+                    raise Exception("There was a fatal Exception")
+                if "--verbose" in sys.argv:
+                    print(f"-> {function_call_result.parts[0].function_response.response}")
         else:
-            print(response.text)
+            if "--verbose" in sys.argv:
+                print(f"User prompt: {user_prompt}")
+                print(response.text)
+                print(f"Prompt tokens: {response.usage_metadata.prompt_token_count}")
+                print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
+            else:
+                print(response.text)
 
     except Exception as e:
         # Handle potential errors during the API call
