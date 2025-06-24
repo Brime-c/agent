@@ -149,26 +149,33 @@ if __name__ == "__main__":
         ]
     )
 
-
+    iteration = 0
     try:
-        # Send the message list to the model and get a response
-        response = client.models.generate_content(
-            model='gemini-2.0-flash-001',
-            contents=messages,
-            config=types.GenerateContentConfig(
-                tools=[available_functions],
-                system_instruction=system_prompt
-                ),
-        )
-        
-        if response.function_calls:
-            for item in response.function_calls:
-                function_call_result = call_function(item, verbose ="--verbose" in sys.argv)
-                if not function_call_result.parts or not function_call_result.parts[0].function_response:
-                    raise Exception("There was a fatal Exception")
-                if "--verbose" in sys.argv:
-                    print(f"-> {function_call_result.parts[0].function_response.response}")
-        else:
+        while iteration < 20:
+            response = client.models.generate_content(
+                model='gemini-2.0-flash-001',
+                contents=messages,
+                config=types.GenerateContentConfig(
+                    tools=[available_functions],
+                    system_instruction=system_prompt
+                    ),
+            )
+            for candidate in response.candidates:
+                messages.append(candidate.content)
+                
+            
+            if response.function_calls:
+                for item in response.function_calls:
+                    function_call_result = call_function(item, verbose ="--verbose" in sys.argv)
+                    if not function_call_result.parts or not function_call_result.parts[0].function_response:
+                        raise Exception("There was a fatal Exception")
+                    messages.append(function_call_result)
+                    if "--verbose" in sys.argv:
+                        print(f"-> {function_call_result.parts[0].function_response.response}")
+                iteration += 1
+                continue
+                
+
             if "--verbose" in sys.argv:
                 print(f"User prompt: {user_prompt}")
                 print(response.text)
@@ -176,7 +183,15 @@ if __name__ == "__main__":
                 print(f"Response tokens: {response.usage_metadata.candidates_token_count}")
             else:
                 print(response.text)
-
+            iteration += 1
+            break
+        
+        else:
+            print("Maximum iterations reached. Last response:")
+            print(response.text)
     except Exception as e:
         # Handle potential errors during the API call
         print(f"An error occurred: {e}")
+
+
+    

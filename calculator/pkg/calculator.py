@@ -9,10 +9,10 @@ class Calculator:
             "/": lambda a, b: a / b,
         }
         self.precedence = {
-            "+": 1,
+            "+": 2,
             "-": 1,
-            "*": 2,
-            "/": 2,
+            "*": 3,
+            "/": 3,
         }
 
     def evaluate(self, expression):
